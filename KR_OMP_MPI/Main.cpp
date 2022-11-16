@@ -79,7 +79,6 @@ void printQueue(std::queue<int> queue) {
 
 char* charSubstr(char* text, int offset, int count) {
 	char* substring = new char[count];
-
 	for (int i = 0; i < count; i++) {
 		substring[i] = text[i + offset];
 	}
@@ -129,9 +128,10 @@ std::queue<int> rabinKarpOMP(char* chain, char* pattern, int chain_len, int patt
 
 		if (chain_hash == pattern_hash) {
 			//best way to compare chain with pattern one by one letter?
-			#pragma omp parallel for schedule(static, 5) private(i) shared(result)
+			//#pragma omp parallel for schedule(static, 5) private(i) shared(result)
 			for (int j = 0; j < pattern_len; j++) {
-				if (pattern[j] == chain[i + j]) {
+				if (pattern[j] != chain[i + j]) break;
+				else if (j == pattern_len-1) { //do tablicy wpisujemy dopiero po sprawdzeniu wszystkich znaków
 					omp_set_lock(&lock);
 					result.push(0);
 					omp_unset_lock(&lock);
