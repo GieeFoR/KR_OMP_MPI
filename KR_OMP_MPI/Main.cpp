@@ -75,12 +75,12 @@ int main(int argc, char** argv) {
 	std::cout << "\nExecution time for algorithm without parallelization: " << (end - start) << ".\n";
 	printQueue(resBasic);
 
-	// start = omp_get_wtime();
-	// resOMP = rabinKarpOMP(chain, pattern, chain_len, pattern_len);
-	// end = omp_get_wtime();
+	start = omp_get_wtime();
+	resOMP = rabinKarpOMP(chain, pattern, chain_len, pattern_len);
+	end = omp_get_wtime();
 
-	// std::cout << "\nExecution time for algorithm with OpenMP parallelization: " << (end - start) << ".\n";
-	//printQueue(resOMP);
+	std::cout << "\nExecution time for algorithm with OpenMP parallelization: " << (end - start) << ".\n";
+	printQueue(resOMP);
 
 
 	// start = omp_get_wtime();
@@ -92,25 +92,6 @@ int main(int argc, char** argv) {
 	//release dynamic allocated mem
 	return 0;
 }
-
-// Text readFileToText(char* name) {
-// 	Text textStruct;
-
-// 	FILE* f = fopen(name, "rb");
-// 	fseek(f, 0, SEEK_END);
-// 	long fsize = ftell(f);
-// 	fseek(f, 0, SEEK_SET);
-
-// 	char* text = (char*)malloc(fsize + 1);
-// 	fread(text, fsize, 1, f);
-// 	fclose(f);
-
-// 	text[fsize] = 0;
-
-// 	textStruct.content = text;
-// 	textStruct.length = fsize;
-// 	return textStruct;
-// } 
 
 char* generateString(int len) {
 	char* text = new char[len+1];
@@ -169,23 +150,21 @@ std::queue<int> rabinKarpBasic(char* chain, char* pattern, int chain_len, int pa
 std::queue<int> rabinKarpOMP(char* chain, char* pattern, int chain_len, int pattern_len) {
 	std::queue<int> result;
 	size_t pattern_hash = hashText(pattern, pattern_len);
-	const int loops_amount = chain_len - pattern_len; //+1?
+	const int loops_amount = chain_len - pattern_len + 1;
 
-	#pragma omp parallel for schedule(dynamic, 8) shared(result) private(pattern_hash)
+	#pragma omp parallel for schedule(static) shared(result) firstprivate(pattern_hash)
 	for (int i = 0; i < loops_amount; i++) {
 
 		size_t chain_hash = 1;
-		#pragma omp parallel for schedule(static, 5) // reduction (+ : chain_hash) 
+		#pragma omp parallel for schedule(static) // reduction (+ : chain_hash) 
 		for (int j = 0; j < pattern_len; j++) {
 			chain_hash += int(chain[j + pattern_len]) * pow(151, pattern_len - j - 1); //pomyœleæ nad sta³¹; aktualnie = 151
 		}
 
 		if (chain_hash == pattern_hash) {
-			//best way to compare chain with pattern one by one letter?
-			//#pragma omp parallel for schedule(static, 5) private(i) shared(result)
 			for (int j = 0; j < pattern_len; j++) {
 				if (pattern[j] != chain[i + j]) break;
-				else if (j == pattern_len-1) { //do tablicy wpisujemy dopiero po sprawdzeniu wszystkich znaków
+				else if (j == pattern_len-1) {
 					omp_set_lock(&lock);
 					result.push(i);
 					omp_unset_lock(&lock);
