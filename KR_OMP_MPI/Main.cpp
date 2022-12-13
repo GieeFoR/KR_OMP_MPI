@@ -46,11 +46,14 @@ int main(int argc, char** argv) {
 	//std::cin >> pattern_len;
 
 	//for tests
-	chain_len = 1000000;
-	pattern_len = 2;
+	chain_len = 16;
+	pattern_len = 4;
 
-	char* chain = generateString(chain_len);
-	char* pattern = generateString(pattern_len);
+	//char* chain = generateString(chain_len);
+	//char* pattern = generateString(pattern_len);
+
+	char* chain = (char*)"testtesttesttest";
+	char* pattern = (char*)"test";
 
 
 
@@ -109,17 +112,6 @@ int main(int argc, char** argv) {
 // 	return textStruct;
 // } 
 
-// Text readFileToText(char* name) {
-
-// 	std::ifstream in(name);
-// 	std::string contents((std::istreambuf_iterator<char>(in)), 
-// 		std::istreambuf_iterator<char>());
-
-// 	textStruct.content = text;
-// 	textStruct.length = fsize;
-// 	return textStruct;
-// } 
-
 char* generateString(int len) {
 	char* text = new char[len+1];
 
@@ -131,17 +123,16 @@ char* generateString(int len) {
 }
 
 void printQueue(std::queue<int> queue) {
-	for (int i = 0; i < queue.size(); i++) {
+	while(!queue.empty()) {
 		std::cout << queue.front() << " ";
 		queue.pop();
 	}
 }
 
 char* charSubstr(char* text, int offset, int count) {
-	char* substring = new char[count];
-	for (int i = 0; i < count; i++) {
-		substring[i] = text[i + offset];
-	}
+	char* substring = new char[count+1];
+	strncpy(substring, &text[offset], count);
+	substring[count] = '\0';
 	return substring;
 }
 
@@ -158,13 +149,16 @@ std::queue<int> rabinKarpBasic(char* chain, char* pattern, int chain_len, int pa
 
 	size_t pattern_hash = hashText(pattern, pattern_len);
 	size_t chain_hash;
-	const int loops_amount = chain_len - pattern_len;
+	const int loops_amount = chain_len - pattern_len + 1;
 
 	for (int i = 0; i < loops_amount; i++) {
 		chain_hash = hashText(charSubstr(chain, i, pattern_len), pattern_len);
 		if (chain_hash == pattern_hash) {
-			if (pattern == charSubstr(chain, i, pattern_len)) {
-				result.push(i);
+			for (int j = 0; j < pattern_len; j++) {
+				if (pattern[j] != chain[i + j]) break;
+				else if (j == pattern_len - 1) {
+					result.push(i);
+				}
 			}
 		}
 	}
@@ -193,7 +187,7 @@ std::queue<int> rabinKarpOMP(char* chain, char* pattern, int chain_len, int patt
 				if (pattern[j] != chain[i + j]) break;
 				else if (j == pattern_len-1) { //do tablicy wpisujemy dopiero po sprawdzeniu wszystkich znaków
 					omp_set_lock(&lock);
-					result.push(0);
+					result.push(i);
 					omp_unset_lock(&lock);
 				}
 			}
