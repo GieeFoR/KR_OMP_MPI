@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
 	//char* chain = generateString(chain_len);
 	//char* pattern = generateString(pattern_len);
 
+	// char* chain = (char*)"testtesttesttest";
 	char* chain = (char*)"testtesttesttest";
 	char* pattern = (char*)"test";
 
@@ -68,26 +69,27 @@ int main(int argc, char** argv) {
 	std::queue<int> resBasic, resOMP, resMPI, resOMP_MPI;
 	double start, end;	
 
-	start = omp_get_wtime();
-	resBasic = rabinKarpBasic(chain, pattern, chain_len, pattern_len);
-	end = omp_get_wtime();
+	// start = omp_get_wtime();
+	// resBasic = rabinKarpBasic(chain, pattern, chain_len, pattern_len);
+	// end = omp_get_wtime();
 
-	std::cout << "\nExecution time for algorithm without parallelization: " << (end - start) << ".\n";
-	printQueue(resBasic);
-
-	start = omp_get_wtime();
-	resOMP = rabinKarpOMP(chain, pattern, chain_len, pattern_len);
-	end = omp_get_wtime();
-
-	std::cout << "\nExecution time for algorithm with OpenMP parallelization: " << (end - start) << ".\n";
-	printQueue(resOMP);
-
+	// std::cout << "\nExecution time for algorithm without parallelization: " << (end - start) << ".\n";
+	// printQueue(resBasic);
 
 	// start = omp_get_wtime();
-	// resMPI = rabinKarpMPI(chain, pattern, chain_len, pattern_len, argc, argv);
+	// resOMP = rabinKarpOMP(chain, pattern, chain_len, pattern_len);
 	// end = omp_get_wtime();
 
 	// std::cout << "\nExecution time for algorithm with OpenMP parallelization: " << (end - start) << ".\n";
+	// printQueue(resOMP);
+
+
+	start = omp_get_wtime();
+	resMPI = rabinKarpMPI(chain, pattern, chain_len, pattern_len, argc, argv);
+	end = omp_get_wtime();
+
+	std::cout << "\nExecution time for algorithm with MPI parallelization: " << (end - start) << ".\n";
+	printQueue(resMPI);
 
 	//release dynamic allocated mem
 	return 0;
@@ -134,6 +136,7 @@ std::queue<int> rabinKarpBasic(char* chain, char* pattern, int chain_len, int pa
 
 	for (int i = 0; i < loops_amount; i++) {
 		chain_hash = hashText(charSubstr(chain, i, pattern_len), pattern_len);
+		printf("Basic %d: %lu\n", i, chain_hash);
 		if (chain_hash == pattern_hash) {
 			for (int j = 0; j < pattern_len; j++) {
 				if (pattern[j] != chain[i + j]) break;
@@ -158,9 +161,10 @@ std::queue<int> rabinKarpOMP(char* chain, char* pattern, int chain_len, int patt
 		size_t chain_hash = 1;
 		#pragma omp parallel for schedule(static) // reduction (+ : chain_hash) 
 		for (int j = 0; j < pattern_len; j++) {
-			chain_hash += int(chain[j + pattern_len]) * pow(151, pattern_len - j - 1); //pomyœleæ nad sta³¹; aktualnie = 151
+			chain_hash += int(chain[i + j]) * pow(151, pattern_len - j - 1); //pomyœleæ nad sta³¹; aktualnie = 151
 		}
 
+		printf("Basic %d: %lu\n", i, chain_hash);
 		if (chain_hash == pattern_hash) {
 			for (int j = 0; j < pattern_len; j++) {
 				if (pattern[j] != chain[i + j]) break;
@@ -237,34 +241,36 @@ std::queue<int> rabinKarpMPI(char* chain, char* pattern, int chain_len, int patt
 
 
 		int portionLength = portionSize + (pattern_len - 1);
-		int lastPortionLength = lastPortionSize - pattern_len + 1; //or without (+ 1)
-
+		// int lastPortionLength = lastPortionSize - pattern_len + 1; //or without (+ 1)
+		int lastPortionLength = lastPortionSize;
 
 		for (size_t i = 1; i <= numberOfPortions; i++) {
 			
 			// Send basic info in struct
-			dataToSend.textLength = portionLength;
+			dataToSend.textLength = portionLength + 1;
 			dataToSend.startIndex = (i - 1) * portionSize;
-			dataToSend.patternLength = pattern_len;
+			dataToSend.patternLength = pattern_len + 1;
 			dataToSend.patternHash = pattern_hash;
 			
 			if (i == size - 1) {
-				dataToSend.textLength = lastPortionLength;
+				dataToSend.textLength = lastPortionLength + 1;
 			}
 
 			MPI_Send(&dataToSend, 1, searchpart_type, i, basicInfoTag, MPI_COMM_WORLD);
 		}
 
-		MPI_Bcast(pattern, pattern_len, MPI_CHAR, 0, MPI_COMM_WORLD);
+		MPI_Bcast(pattern, dataToSend.patternLength, MPI_CHAR, 0, MPI_COMM_WORLD);
 
 		for (size_t i = 1; i <= numberOfPortions; i++) {
 
 			// Send text portion
 			if (i == size - 1) {
-				MPI_Send(charSubstr(chain, ((i - 1) * portionSize), lastPortionLength), lastPortionLength, MPI_CHAR, i, textTag, MPI_COMM_WORLD);
+				printf("\n\nText - Send in %d -> \t%s \n\n", rank, chain);
+				fflush(stdout);
+				MPI_Send(charSubstr(chain, ((i - 1) * portionSize), lastPortionLength), lastPortionLength + 1, MPI_CHAR, i, textTag, MPI_COMM_WORLD);
 			}
 			else {
-				MPI_Send(charSubstr(chain, ((i - 1) * portionSize), portionLength), portionLength, MPI_CHAR, i, textTag, MPI_COMM_WORLD);
+				MPI_Send(charSubstr(chain, ((i - 1) * portionSize), portionLength), portionLength + 1, MPI_CHAR, i, textTag, MPI_COMM_WORLD);
 			}
 			
 		}
@@ -300,17 +306,35 @@ std::queue<int> rabinKarpMPI(char* chain, char* pattern, int chain_len, int patt
 		char* text = new char[receivedData.textLength];
 		char* pattern = new char[receivedData.patternLength];
 
+		// text[receivedData.textLength] = '\0';
+		// pattern[receivedData.patternLength] = '\0';
+
 		MPI_Bcast(pattern, receivedData.patternLength, MPI_CHAR, 0, MPI_COMM_WORLD);
 		MPI_Recv(text, receivedData.textLength, MPI_CHAR, 0, textTag, MPI_COMM_WORLD, &status);
 
+		printf("\n\nProces %d: Text Length: %d\tPattern Length: %d\t Start Index: %d \n\n", rank, receivedData.textLength, receivedData.patternLength, receivedData.startIndex);
+		fflush(stdout);
+		printf("\n\nPattern - Received in %d -> \t%s \n\n", rank, pattern);
+		fflush(stdout);
+		printf("\n\nText - Received in %d -> \t%s \n\n", rank, text);
+		fflush(stdout);
 
-		printf("\n\nPattern - Received in %d -> \tstart: %s; \tkoniec %s\n\n", rank, charSubstr(pattern, 0, 20), charSubstr(pattern, receivedData.patternLength-20, 20));
-		fflush(stdout);
-		printf("\n\nText - Received in %d -> \tstart: %s; \tkoniec %s\n\n", rank, charSubstr(text, 0, 20), charSubstr(text, receivedData.textLength-20, 20));
-		fflush(stdout);
+		// printf("\n\nPattern - Received in %d -> \tstart: %s; \tkoniec %s\n\n", rank, charSubstr(pattern, 0, 20), charSubstr(pattern, receivedData.patternLength-20, 20));
+		// fflush(stdout);
+		// printf("\n\nText - Received in %d -> \tstart: %s; \tkoniec %s\n\n", rank, charSubstr(text, 0, 20), charSubstr(text, receivedData.textLength-20, 20));
+		// fflush(stdout);
 
 		std::queue<int> result;
-		result = rabinKarpBasic(text, pattern, receivedData.textLength, receivedData.patternLength);
+		result = rabinKarpOMP(text, pattern, receivedData.textLength-1, receivedData.patternLength-1);
+		
+		/*printf("\n\n \033[0; 32m Proces %d ->", rank);
+		while(!result.empty()) {
+			printf("\033[0; 32m %d \033[0m", result.front());
+			fflush(stdout);
+			result.pop();
+			
+		}*/
+
 		
 		//tukej funkcja
 
@@ -322,10 +346,11 @@ std::queue<int> rabinKarpMPI(char* chain, char* pattern, int chain_len, int patt
 			int* resultArray = new int[resultSize];
 			for (size_t i = 0; i < resultSize; i++)
 			{
-				resultArray[i] = result.front();
+				resultArray[i] = result.front() + receivedData.startIndex;
+				result.pop();
 			}
 			MPI_Send(&resultSize, 1, MPI_INT, 0, resultSizeTag, MPI_COMM_WORLD);
-			MPI_Send(&resultArray, resultSize, MPI_INT, 0, resultTag, MPI_COMM_WORLD);
+			MPI_Send(resultArray, resultSize, MPI_INT, 0, resultTag, MPI_COMM_WORLD);
 		}
 		else {
 			resultSize = 0;
