@@ -52,7 +52,6 @@ int main(int argc, char** argv) {
 	//char* chain = generateString(chain_len);
 	//char* pattern = generateString(pattern_len);
 
-	// char* chain = (char*)"testtesttesttest";
 	char* chain = (char*)"testtesttesttest";
 	char* pattern = (char*)"test";
 
