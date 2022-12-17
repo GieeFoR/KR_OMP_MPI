@@ -134,6 +134,8 @@
     <ClCompile Include="che.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MPI_Debug.cpp" />
+    <ClCompile Include="MPI_OMP_Debug.cpp" />
+    <ClCompile Include="MPI_OMP_Release.cpp" />
     <ClCompile Include="MPI_Release.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

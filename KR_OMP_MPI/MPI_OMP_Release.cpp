@@ -42,7 +42,7 @@
 //int hashText(char* text, int len);
 //void printQueue(std::queue<int> queue);
 //char* charSubstr(char* text, int offset, int count);
-//std::queue<int> rabinKarpBasic(char* chain, char* pattern, int chain_len, int pattern_len);
+//std::queue<int> rabinKarpOMP(char* chain, char* pattern, int chain_len, int pattern_len);
 //
 //
 //int main(int argc, char** argv) {
@@ -52,7 +52,7 @@
 //	unsigned long jobSizes[] = { 100000000, 10000000, 1000000, 100000, 10000, 1000, 100 };
 //	srand(time(NULL));
 //
-//    //std::queue<int> result;
+//	//std::queue<int> result;
 //	file.imbue(std::locale(std::locale::classic(), new Comma));
 //	file.open("wyniki.csv");
 //
@@ -93,11 +93,11 @@
 //
 //	file << "D³ugoœæ tekstu" << ";" << "Czas" << endl;
 //
-//	for (size_t js = 0; js < 7; js++) 
+//	for (size_t js = 0; js < 7; js++)
 //	{
 //		if (rank == 0) {
 //
-//			int chain_len = jobSizes[js]; 
+//			int chain_len = jobSizes[js];
 //			int pattern_len = 10;
 //
 //			char* chain = generateString(chain_len);
@@ -186,7 +186,7 @@
 //			MPI_Recv(text, receivedData.textLength, MPI_CHAR, 0, textTag, MPI_COMM_WORLD, &status);
 //
 //			std::queue<int> result;
-//			result = rabinKarpBasic(text, pattern, receivedData.textLength - 1, receivedData.patternLength - 1);
+//			result = rabinKarpOMP(text, pattern, receivedData.textLength - 1, receivedData.patternLength - 1);
 //
 //			delete text;
 //			delete pattern;
@@ -208,10 +208,10 @@
 //				MPI_Send(&resultSize, 1, MPI_INT, 0, resultSizeTag, MPI_COMM_WORLD);
 //			}
 //
-//			
+//
 //		}
 //	}
-//	
+//
 //
 //	MPI_Finalize();
 //
@@ -219,7 +219,7 @@
 //}
 //
 //char* generateString(int len) {
-//	char* text = new char[len+1];
+//	char* text = new char[len + 1];
 //
 //	for (int i = 0; i < len; i++) {
 //		text[i] = (char)((rand() % ('z' - ' ')) + ' ');
@@ -229,14 +229,14 @@
 //}
 //
 //void printQueue(std::queue<int> queue) {
-//	while(!queue.empty()) {
+//	while (!queue.empty()) {
 //		std::cout << queue.front() << " ";
 //		queue.pop();
 //	}
 //}
 //
 //char* charSubstr(char* text, int offset, int count) {
-//	char* substring = new char[count+1];
+//	char* substring = new char[count + 1];
 //	strncpy(substring, &text[offset], count);
 //	substring[count] = '\0';
 //	return substring;
@@ -250,20 +250,27 @@
 //	return h;
 //}
 //
-//std::queue<int> rabinKarpBasic(char* chain, char* pattern, int chain_len, int pattern_len) {
+//std::queue<int> rabinKarpOMP(char* chain, char* pattern, int chain_len, int pattern_len) {
 //	std::queue<int> result;
-//
 //	size_t pattern_hash = hashText(pattern, pattern_len);
-//	size_t chain_hash;
 //	const int loops_amount = chain_len - pattern_len + 1;
 //
+//	#pragma omp parallel for schedule(static) shared(result) firstprivate(pattern_hash)
 //	for (int i = 0; i < loops_amount; i++) {
-//		chain_hash = hashText(charSubstr(chain, i, pattern_len), pattern_len);
+//
+//		size_t chain_hash = 1;
+//		#pragma omp parallel for schedule(static) // reduction (+ : chain_hash) 
+//		for (int j = 0; j < pattern_len; j++) {
+//			chain_hash += int(chain[i + j]) * pow(151, pattern_len - j - 1); //pomyœleæ nad sta³¹; aktualnie = 151
+//		}
+//
 //		if (chain_hash == pattern_hash) {
 //			for (int j = 0; j < pattern_len; j++) {
 //				if (pattern[j] != chain[i + j]) break;
-//				else if (j == pattern_len - 1) {
+//				else if (j == pattern_len-1) {
+//					omp_set_lock(&lock);
 //					result.push(i);
+//					omp_unset_lock(&lock);
 //				}
 //			}
 //		}
